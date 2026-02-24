@@ -35,6 +35,8 @@ export type BufferedUploadFile = {
 export type CreateJobRequest = {
   materialId: string;
   sourceType: SourceType;
+  mainFile?: string;
+  title?: string;
   files: BufferedUploadFile[];
 };
 const ensurePayloadSize = (files: BufferedUploadFile[]): void => {
@@ -71,7 +73,7 @@ const detectSourceTypeFromNames = (names: string[]): SourceType | null => {
   }
 
   const detected = names.map((name) => detectFileSourceType(name));
-  if (detected.some((value) => value === 'latex' || value === 'unknown')) {
+  if (detected.some((value) => value === 'unknown')) {
     return null;
   }
 
@@ -125,6 +127,8 @@ const parseJsonCreateJobPayload = async (c: Context<{ Bindings: EnvBindings }>):
   return {
     materialId: request.materialId,
     sourceType: request.sourceType,
+    mainFile: request.mainFile,
+    title: request.title,
     files
   };
 };
@@ -163,6 +167,16 @@ const parseMultipartCreateJobPayload = async (
     typeof rawMaterialId === 'string' && rawMaterialId.trim().length > 0
       ? materialIdSchema.parse(rawMaterialId)
       : generateId();
+  const rawMainFile = formData.get('mainFile');
+  const mainFile =
+    typeof rawMainFile === 'string' && rawMainFile.trim().length > 0
+      ? fileNameSchema.parse(rawMainFile)
+      : undefined;
+  const rawTitle = formData.get('title');
+  const title =
+    typeof rawTitle === 'string' && rawTitle.trim().length > 0
+      ? rawTitle.trim().slice(0, 200)
+      : undefined;
 
   const files: BufferedUploadFile[] = [];
   for (const file of uploadFiles) {
@@ -177,6 +191,8 @@ const parseMultipartCreateJobPayload = async (
   return {
     materialId,
     sourceType: sourceType ?? (detectedType as SourceType),
+    mainFile,
+    title,
     files
   };
 };

@@ -1,91 +1,123 @@
 import { z } from 'zod';
 import type { EnvBindings } from '../env';
-import type { ExtractionJobState, ExtractionQueueMessage } from './contracts';
-import { encodeArrayBufferToBase64 } from './base64-utils';
-import { writeExtractionJob } from './job-store';
-import { HttpNormalizationClient } from './normalization-client';
+import type { ExtractionQueueMessage } from './contracts';
+import { ExtractQuestionsUseCase } from '../application/use-cases/extract-questions-use-case';
+import { D1MaterialRepository } from '../infrastructure/persistence/d1-material-repository';
+import { D1QuestionRepository } from '../infrastructure/persistence/d1-question-repository';
+import {
+  D1ExtractionJobRepository,
+  type ExtractionJobRepository
+} from '../infrastructure/persistence/d1-extraction-job-repository';
+import { R2FileStorage } from '../infrastructure/storage/r2-file-storage';
+import { HttpNormalizationPort } from '../infrastructure/normalization/http-normalization-port';
+
+const MAX_QUEUE_ATTEMPTS = 3;
 
 const queueMessageSchema = z.object({
   jobId: z.string().min(1),
   materialId: z.string().min(1),
-  sourceType: z.enum(['pdf', 'docx', 'image']),
-  files: z.array(
-    z.object({
-      name: z.string().min(1),
-      key: z.string().min(1)
-    })
-  )
+  sourceType: z.enum(['latex', 'pdf', 'docx', 'image']).optional()
 });
 
-const nowIso = (): string => new Date().toISOString();
+type QueueDependencies = {
+  jobRepo: ExtractionJobRepository;
+  runExtraction: (materialId: string) => Promise<number>;
+};
 
-const toProcessingState = (message: ExtractionQueueMessage): ExtractionJobState => ({
-  jobId: message.jobId,
-  materialId: message.materialId,
-  sourceType: message.sourceType,
-  status: 'processing',
-  updatedAt: nowIso()
-});
+type QueueDependenciesFactory = (env: EnvBindings) => QueueDependencies;
+
+export const defaultQueueDependenciesFactory: QueueDependenciesFactory = (env) => {
+  const materialRepo = new D1MaterialRepository(env.DB);
+  const questionRepo = new D1QuestionRepository(env.DB);
+  const storage = new R2FileStorage(env.STORAGE);
+  const normalizer = new HttpNormalizationPort(env.NORMALIZER_URL, env.NORMALIZER_TOKEN, 20_000);
+  const useCase = new ExtractQuestionsUseCase(materialRepo, questionRepo, storage, normalizer);
+
+  return {
+    jobRepo: new D1ExtractionJobRepository(env.DB),
+    runExtraction: async (materialId: string) => {
+      const questions = await useCase.execute({ materialId });
+      return questions.length;
+    }
+  };
+};
 
 export const handleExtractionMessage = async (
   message: Message<unknown>,
-  env: EnvBindings
+  env: EnvBindings,
+  dependenciesFactory: QueueDependenciesFactory = defaultQueueDependenciesFactory
 ): Promise<void> => {
-  const payload = queueMessageSchema.parse(message.body) as ExtractionQueueMessage;
-
-  await writeExtractionJob(env.CACHE, toProcessingState(payload));
+  let payload: ExtractionQueueMessage | null = null;
+  let dependencies: QueueDependencies | null = null;
 
   try {
-    const files = [] as Array<{ name: string; contentBase64: string }>;
+    payload = queueMessageSchema.parse(message.body) as ExtractionQueueMessage;
+    dependencies = dependenciesFactory(env);
 
-    for (const fileRef of payload.files) {
-      const object = await env.STORAGE.get(fileRef.key);
-      if (!object) {
-        throw new Error(`File not found in storage: ${fileRef.key}`);
-      }
-
-      const bytes = await object.arrayBuffer();
-      files.push({
-        name: fileRef.name,
-        contentBase64: encodeArrayBufferToBase64(bytes)
-      });
+    const existing = await dependencies.jobRepo.findById(payload.jobId);
+    if (existing?.status === 'completed') {
+      message.ack();
+      return;
     }
 
-    const normalizer = new HttpNormalizationClient(env.NORMALIZER_URL, env.NORMALIZER_TOKEN, 20_000);
-    const normalized = await normalizer.normalize({
-      materialId: payload.materialId,
-      sourceType: payload.sourceType,
-      files
-    });
+    await dependencies.jobRepo.createPending(payload.jobId, payload.materialId);
+    await dependencies.jobRepo.markProcessing(payload.jobId, 10);
+    await dependencies.jobRepo.updateProgress(payload.jobId, 35);
 
-    await writeExtractionJob(env.CACHE, {
-      jobId: payload.jobId,
-      materialId: payload.materialId,
-      sourceType: payload.sourceType,
-      status: 'completed',
-      updatedAt: nowIso(),
-      normalized: {
-        mainFile: normalized.mainFile,
-        fileCount: Object.keys(normalized.fileMap).length,
-        preview: normalized.fileMap[normalized.mainFile]?.slice(0, 160) ?? ''
-      }
-    });
+    const questionCount = await dependencies.runExtraction(payload.materialId);
 
-    await Promise.all(payload.files.map(async (fileRef) => env.STORAGE.delete(fileRef.key)));
+    await dependencies.jobRepo.updateProgress(payload.jobId, 90);
+    await dependencies.jobRepo.markCompleted(payload.jobId, { questionCount });
     message.ack();
   } catch (error) {
+    if (!payload || !dependencies) {
+      console.error('Invalid extraction queue message:', error);
+      message.ack();
+      return;
+    }
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown extraction error';
+    const attempts = queueAttempt(message);
+    const retriable = isRetriableError(error);
 
-    await writeExtractionJob(env.CACHE, {
-      jobId: payload.jobId,
-      materialId: payload.materialId,
-      sourceType: payload.sourceType,
-      status: 'failed',
-      updatedAt: nowIso(),
-      errorMessage
-    });
+    if (retriable && attempts < MAX_QUEUE_ATTEMPTS) {
+      await dependencies.jobRepo.markRetryPending(payload.jobId, errorMessage);
+      message.retry();
+      return;
+    }
 
+    await dependencies.jobRepo.markFailed(payload.jobId, errorMessage);
     console.error(`Extraction failed for ${payload.jobId}:`, error);
     message.ack();
   }
 };
+
+function queueAttempt(message: Message<unknown>): number {
+  const attempt = (message as Message<unknown> & { attempts?: number }).attempts;
+  if (typeof attempt === 'number' && Number.isFinite(attempt) && attempt > 0) {
+    return attempt;
+  }
+  return 1;
+}
+
+function isRetriableError(error: unknown): boolean {
+  if (error instanceof z.ZodError) {
+    return false;
+  }
+
+  const message = error instanceof Error ? error.message : String(error);
+  if (/not found/i.test(message)) {
+    return false;
+  }
+  if (/aborted|timeout|timed out/i.test(message)) {
+    return true;
+  }
+
+  const statusMatch = message.match(/Normalizer request failed with (\d{3})/i);
+  if (statusMatch) {
+    const statusCode = Number.parseInt(statusMatch[1], 10);
+    return statusCode >= 500 || statusCode === 429;
+  }
+
+  return true;
+}

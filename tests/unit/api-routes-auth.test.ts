@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import worker from '../../src/index';
 import type { EnvBindings } from '../../src/env';
 import { apiKeyCacheKey } from '../../src/shared/api-key-auth';
+import { MockD1Database } from '../helpers/mock-d1';
 
 class MemoryKv {
   private readonly map = new Map<string, string>();
@@ -32,16 +33,18 @@ class MemoryR2 {
 const createEnv = async (): Promise<EnvBindings & { CACHE: MemoryKv }> => {
   const cache = new MemoryKv();
   await cache.put(apiKeyCacheKey('valid-key'), 'active');
-  await cache.put(
-    'extraction-job:job-1',
-    JSON.stringify({
-      jobId: 'job-1',
-      materialId: 'mat-1',
-      sourceType: 'pdf',
-      status: 'queued',
-      updatedAt: new Date().toISOString()
-    })
-  );
+  const db = new MockD1Database();
+  db.firstQueue.push({
+    id: 'job-1',
+    material_id: 'mat-1',
+    status: 'pending',
+    progress: 0,
+    result: null,
+    error: null,
+    started_at: null,
+    completed_at: null,
+    created_at: new Date().toISOString()
+  });
 
   return {
     CACHE: cache,
@@ -49,7 +52,7 @@ const createEnv = async (): Promise<EnvBindings & { CACHE: MemoryKv }> => {
     EXTRACTION_QUEUE: {
       send: async () => undefined
     } as Queue,
-    DB: {} as D1Database,
+    DB: db,
     ENVIRONMENT: 'test',
     NORMALIZER_URL: 'https://normalizer.example.com',
     NORMALIZER_TOKEN: 'token'
@@ -80,5 +83,35 @@ describe('api auth and canonical jobs route', () => {
     expect(response.status).toBe(200);
     expect(body.job.jobId).toBe('job-1');
     expect(body.job.materialId).toBe('mat-1');
+  });
+
+  it('does not expose duplicate status path at /api/extraction/jobs/:id', async () => {
+    const env = await createEnv();
+
+    const response = await worker.fetch(
+      new Request('https://example.com/api/extraction/jobs/job-1', {
+        headers: {
+          'x-api-key': 'valid-key'
+        }
+      }),
+      env
+    );
+
+    expect(response.status).toBe(404);
+  });
+
+  it('accepts bearer auth token as api key', async () => {
+    const env = await createEnv();
+
+    const response = await worker.fetch(
+      new Request('https://example.com/api/jobs/job-1', {
+        headers: {
+          Authorization: 'Bearer valid-key'
+        }
+      }),
+      env
+    );
+
+    expect(response.status).toBe(200);
   });
 });
