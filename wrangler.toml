@@ -4,12 +4,12 @@ compatibility_date = "2024-12-01"
 
 [vars]
 ENVIRONMENT = "development"
-NORMALIZER_URL = "http://localhost:8080"
+NORMALIZER_URL = "https://normalizer-service.thanhhien-writer.workers.dev"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "mcq-generator-db"
-database_id = "replace-with-your-d1-database-id"
+database_id = "02f0bdac-8681-412b-851f-84740ce7ddc5"
 
 [[r2_buckets]]
 binding = "STORAGE"
@@ -27,7 +27,7 @@ dead_letter_queue = "extraction-dlq"
 
 [[kv_namespaces]]
 binding = "CACHE"
-id = "replace-with-your-kv-namespace-id"
+id = "174bb2e9a6a549bd8d599156ab613532"
 
-[[triggers.crons]]
-cron = "0 */6 * * *"
+[triggers]
+crons = ["0 */6 * * *"]

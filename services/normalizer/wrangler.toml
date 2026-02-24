@@ -1,0 +1,11 @@
+name = "normalizer-service"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+[vars]
+OCR_PROVIDER = "openrouter"
+OCR_MODEL = "z-ai/glm-4.6v"
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+MAX_FILES_PER_REQUEST = "5"
+MAX_AGGREGATE_PAYLOAD_BYTES = "5242880"
+REQUEST_TIMEOUT_MS = "20000"
