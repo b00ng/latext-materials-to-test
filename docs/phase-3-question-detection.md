@@ -14,7 +14,7 @@
 ## Overview
 
 - Priority: P0
-- Status: Planned
+- Status: In Progress (2026-02-24)
 - Scope: deterministic detection + queue orchestration for `latex`/`pdf`/`docx`/`image`
 
 ## Key Insights
@@ -50,10 +50,11 @@
 
 ## Todo List
 
-- [ ] Replace Python-incompatible regex anchors.
-- [ ] Remove fallback answer default.
-- [ ] Persist `answer_status`.
-- [ ] Implement job progress/status writes.
+- [x] Implement queue-based normalization flow for `pdf`/`docx`/`image` with KV job state.
+- [ ] Replace Python-incompatible regex anchors in detector/parser implementation.
+- [ ] Implement `QuestionDetector` and `MCQFormatter`.
+- [ ] Persist extracted questions + `answer_status` into D1.
+- [ ] Implement durable D1-backed job progress/status writes.
 
 ## Success Criteria
 
@@ -871,13 +872,16 @@ A. wrong  B. wrong  \\textbf{C}. correct  D. wrong`;
 
 ## Deliverables
 
-After Phase 3 completion:
-- ✅ Normalization-aware extraction flow for `pdf`/`docx`/`image` sources
-- ✅ `QuestionDetector` — 4 detection strategies (Vietnamese, English, enumerate, heuristic)
-- ✅ `MCQFormatter` — structures blocks into `MCQQuestion` entities with `answerStatus`
-- ✅ `ExtractQuestionsUseCase` — orchestrates parse → detect → format → store
-- ✅ Queue consumer — handles async extraction jobs with explicit job lifecycle updates
-- ✅ `D1MaterialRepository` — CRUD operations for materials table
-- ✅ `D1QuestionRepository` — CRUD operations with batch insert for questions
-- ✅ `R2FileStorage` — upload/download/delete for R2 bucket
-- ✅ Test suite for detector and formatter
+Current implementation (2026-02-24):
+- [x] Normalization-aware extraction flow for `pdf`/`docx`/`image` sources
+- [x] Queue consumer for async normalization jobs
+- [x] R2-backed temporary file staging + cleanup
+- [x] KV-backed extraction job status endpoint under `/api/extraction/jobs/:jobId`
+
+Remaining target deliverables:
+- [ ] `QuestionDetector` — 4 detection strategies (Vietnamese, English, enumerate, heuristic)
+- [ ] `MCQFormatter` — structures blocks into `MCQQuestion` entities with `answerStatus`
+- [ ] `ExtractQuestionsUseCase` — orchestrates parse → detect → format → store
+- [ ] `D1MaterialRepository` — CRUD operations for materials table
+- [ ] `D1QuestionRepository` — CRUD operations with batch insert for questions
+- [ ] Test suite for detector and formatter

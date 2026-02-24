@@ -13,7 +13,7 @@
 ## Overview
 
 - Priority: P0
-- Status: Planned
+- Status: Planned (not implemented in current codebase as of 2026-02-24)
 - Goal: parity with Python LaTeX behavior before multi-format normalization path
 
 ## Key Insights
@@ -943,16 +943,16 @@ npx vitest run tests/domain/
 
 ---
 
-## Deliverables
+## Deliverables (Target)
 
 After Phase 2 completion:
-- ✅ `stripComments()` — ported and tested
-- ✅ `resolveIncludes()` — adapted for R2 file map (no filesystem)
-- ✅ `parsePreamble()` — extracts metadata, macros, custom environments
-- ✅ `detectStructure()` — finds parts/chapters/sections
-- ✅ `splitIntoSections()` — splits chapters into section pairs
-- ✅ `protectMath()` / `restoreMath()` — math placeholder system
-- ✅ `parseLists()` — extracts structured list data (critical for MCQ choices)
-- ✅ `parseEnvironments()` — extracts theorem/example/exercise blocks
-- ✅ `LaTeXParser` facade class — orchestrates full pipeline
-- ✅ 8+ test files covering all ported functions
+- [ ] `stripComments()` — ported and tested
+- [ ] `resolveIncludes()` — adapted for R2 file map (no filesystem)
+- [ ] `parsePreamble()` — extracts metadata, macros, custom environments
+- [ ] `detectStructure()` — finds parts/chapters/sections
+- [ ] `splitIntoSections()` — splits chapters into section pairs
+- [ ] `protectMath()` / `restoreMath()` — math placeholder system
+- [ ] `parseLists()` — extracts structured list data (critical for MCQ choices)
+- [ ] `parseEnvironments()` — extracts theorem/example/exercise blocks
+- [ ] `LaTeXParser` facade class — orchestrates full pipeline
+- [ ] 8+ test files covering all ported functions

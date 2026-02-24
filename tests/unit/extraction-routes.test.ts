@@ -30,12 +30,8 @@ class MemoryR2 {
 }
 
 describe('extraction routes', () => {
-  it('creates extraction jobs and enqueues queue messages', async () => {
-    const queueSend = vi.fn().mockResolvedValue(undefined);
-    const app = new Hono<{ Bindings: EnvBindings }>();
-    app.route('/api/extraction', extractionRoutes);
-
-    const env = {
+  const createEnv = (queueSend: ReturnType<typeof vi.fn>): EnvBindings =>
+    ({
       CACHE: new MemoryKv(),
       STORAGE: new MemoryR2(),
       EXTRACTION_QUEUE: {
@@ -45,7 +41,13 @@ describe('extraction routes', () => {
       ENVIRONMENT: 'test',
       NORMALIZER_URL: 'https://normalizer.example.com',
       NORMALIZER_TOKEN: 'token'
-    } as unknown as EnvBindings;
+    }) as unknown as EnvBindings;
+
+  it('creates extraction jobs and enqueues queue messages from JSON payload', async () => {
+    const queueSend = vi.fn().mockResolvedValue(undefined);
+    const app = new Hono<{ Bindings: EnvBindings }>();
+    app.route('/api/extraction', extractionRoutes);
+    const env = createEnv(queueSend);
 
     const request = new Request('https://example.com/api/extraction/jobs', {
       method: 'POST',
@@ -62,6 +64,31 @@ describe('extraction routes', () => {
 
     expect(response.status).toBe(202);
     expect(body.jobId).toBeTruthy();
+    expect(body.status).toBe('queued');
+    expect(queueSend).toHaveBeenCalledTimes(1);
+  });
+
+  it('accepts multipart files[] payloads', async () => {
+    const queueSend = vi.fn().mockResolvedValue(undefined);
+    const app = new Hono<{ Bindings: EnvBindings }>();
+    app.route('/api/extraction', extractionRoutes);
+    const env = createEnv(queueSend);
+
+    const form = new FormData();
+    form.append('materialId', 'mat-2');
+    form.append('sourceType', 'pdf');
+    form.append('files[]', new Blob(['sample pdf content'], { type: 'application/pdf' }), 'sample.pdf');
+
+    const request = new Request('https://example.com/api/extraction/jobs', {
+      method: 'POST',
+      body: form
+    });
+
+    const response = await app.fetch(request, env);
+    const body = (await response.json()) as { materialId: string; status: string };
+
+    expect(response.status).toBe(202);
+    expect(body.materialId).toBe('mat-2');
     expect(body.status).toBe('queued');
     expect(queueSend).toHaveBeenCalledTimes(1);
   });

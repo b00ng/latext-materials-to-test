@@ -13,7 +13,7 @@
 ## Overview
 
 - Priority: P0
-- Status: Planned
+- Status: Completed (2026-02-24)
 - Scope: Infra + contracts for `latex` / `pdf` / `docx` / `image`
 
 ## Key Insights
@@ -46,10 +46,10 @@
 
 ## Todo List
 
-- [ ] Add material schema for multi-source ingestion.
-- [ ] Add question answer-review fields.
-- [ ] Add material/job status transitions.
-- [ ] Ensure interfaces map 1:1 with D1 schema.
+- [x] Add material schema for multi-source ingestion.
+- [x] Add question answer-review fields.
+- [x] Add material/job status transitions.
+- [x] Ensure interfaces map 1:1 with D1 schema.
 
 ## Success Criteria
 
@@ -69,8 +69,7 @@
 
 ## Next Steps
 
-- Phase 2 parser parity with Python implementation.
-- Phase 3 normalization for PDF/DOCX/images.
+- Keep this doc as baseline only; track active work in Phase 4 and Phase 5 docs.
 
 ## 1.1 Project Scaffolding
 

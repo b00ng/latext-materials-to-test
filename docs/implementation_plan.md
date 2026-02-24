@@ -17,6 +17,24 @@ This revision supersedes earlier assumptions and sets final constraints:
 5. **Unknown correct answers**: never default to `A`; store with `answer_status = 'needs_review'`.
 6. **Security**: API key auth via KV is mandatory in v1.
 
+## Part 0.1 — Execution Snapshot (2026-02-24)
+
+Current implementation status in this repository:
+
+| Phase | Status | Notes |
+|------|--------|-------|
+| Phase 1: Core Infrastructure | Completed | Worker, bindings, migrations, entities/ports skeleton, typecheck/tests passing |
+| Phase 2: LaTeX Parser Port | Not started | Parser services and parser test suite are not in current `src/` and `tests/` |
+| Phase 3: Detection + Async Processing | Partially complete | Queue-backed normalization flow exists for `pdf`/`docx`/`image`; detector/formatter/storage flow pending |
+| Phase 4: API + Security + Polish | Partially complete | Extraction job APIs exist under `/api/extraction/jobs*`; broader API/auth contract pending |
+| Phase 5: Accuracy Hardening | Planned | No implementation yet |
+
+Immediate next actions (execution order):
+1. Finish Phase 4 API contract alignment: API key auth, canonical jobs route, upload contract compatibility.
+2. Implement Phase 2 parser port needed for deterministic `latex` path.
+3. Complete Phase 3 detector/formatter + D1 persistence.
+4. Execute Phase 5 accuracy hardening and metrics.
+
 ## Part 1 — Deep Codebase Analysis
 
 ### 1.1 Project Overview
@@ -825,6 +843,8 @@ wrangler secret put NORMALIZER_TOKEN
 3. Add review tooling for `needs_review` questions
 4. Track extraction precision/recall metrics per source type
 
+Detailed phase plan: [phase-5-accuracy-hardening.md](./phase-5-accuracy-hardening.md)
+
 ---
 
 ## Part 5 — Key Regex Patterns to Port
@@ -915,4 +935,4 @@ Port the test fixtures from the existing test files:
 3. Test with Vietnamese math materials specifically
 
 > [!NOTE]
-> This document is a **planning artifact** — implementation will begin after user review and approval.
+> This document now tracks both planning and execution snapshot. Keep this file and phase docs synchronized after each milestone.

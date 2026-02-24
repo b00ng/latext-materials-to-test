@@ -14,7 +14,7 @@
 ## Overview
 
 - Priority: P0
-- Status: Planned
+- Status: In Progress (partial implementation live as of 2026-02-24)
 - Scope: production API surface + auth + validation for multi-source ingestion
 
 ## Key Insights
@@ -48,6 +48,7 @@
 
 ## Todo List
 
+- [x] Ship extraction job APIs under `/api/extraction/jobs` (JSON + queue-backed).
 - [ ] Implement API key auth + rotation.
 - [ ] Support `files[]` upload contract.
 - [ ] Remove duplicate jobs endpoint.
@@ -71,7 +72,7 @@
 
 ## Next Steps
 
-- Phase 5 accuracy hardening and review workflow UX.
+- [Phase 5 accuracy hardening and review workflow UX](./phase-5-accuracy-hardening.md).
 
 ## 4.1 Zod Validation Schemas
 
@@ -690,14 +691,19 @@ npx vitest run tests/integration/
 
 ## Deliverables
 
-After Phase 4 completion:
-- ✅ 14 REST API endpoints fully implemented with Hono
-- ✅ Zod validation schemas for all inputs (3 schema files)
-- ✅ Error handling middleware (AppError, ZodError, 404)
-- ✅ API key middleware with KV-backed key validation
-- ✅ Query and body validation middleware
-- ✅ Canonical jobs route (`/api/jobs/:id`)
-- ✅ Cron handler for cleanup of stale failed materials
-- ✅ Worker deployed to Cloudflare
-- ✅ End-to-end test suite
-- ✅ Complete MCQ generation pipeline: **multi-source upload (`latex/pdf/docx/image`) → normalize/parse → detect → format → JSON API**
+Current implementation (2026-02-24):
+- [x] Base Hono Worker with health/root endpoints
+- [x] Extraction create/status endpoints under `/api/extraction/jobs*`
+- [x] Request validation for extraction create payload (`zod`)
+- [x] Queue consumer integration for async normalization
+
+Remaining target deliverables:
+- [ ] 14 REST API endpoints fully implemented with Hono
+- [ ] Zod validation schemas for all API inputs (materials/questions/tests)
+- [ ] Error handling middleware (AppError, ZodError, 404)
+- [ ] API key middleware with KV-backed key validation
+- [ ] Query and body validation middleware across route groups
+- [ ] Canonical jobs route (`/api/jobs/:id`)
+- [ ] Cron handler for cleanup of stale failed materials
+- [ ] End-to-end test suite
+- [ ] Complete MCQ generation pipeline: **multi-source upload (`latex/pdf/docx/image`) → normalize/parse → detect → format → JSON API**

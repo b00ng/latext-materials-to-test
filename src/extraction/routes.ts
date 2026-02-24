@@ -1,61 +1,42 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { z } from 'zod';
-import { generateId } from '../shared/types';
 import type { EnvBindings } from '../env';
-import type { ExtractionJobState } from './contracts';
-import {
-  extractionRequestSchema,
-  MAX_EXTRACTION_INPUT_BYTES,
-  type ExtractionQueueMessage
-} from './contracts';
-import { decodeBase64ToArrayBuffer, estimateBase64Bytes } from './base64-utils';
+import type { ExtractionJobState, ExtractionQueueMessage } from './contracts';
+import { parseCreateJobPayload, RouteError } from './create-job-request';
+import { generateId } from '../shared/types';
 import { readExtractionJob, writeExtractionJob } from './job-store';
 
 const extractionRoutes = new Hono<{ Bindings: EnvBindings }>();
 
 const nowIso = (): string => new Date().toISOString();
 
-const parseCreateJobPayload = (payload: unknown) => {
-  return extractionRequestSchema.parse(payload);
-};
-
-const ensurePayloadSize = (files: Array<{ contentBase64: string }>): void => {
-  const bytes = files.reduce((total, file) => total + estimateBase64Bytes(file.contentBase64), 0);
-  if (bytes > MAX_EXTRACTION_INPUT_BYTES) {
-    throw new Error(`Payload exceeds ${MAX_EXTRACTION_INPUT_BYTES} bytes.`);
-  }
-};
-
 const storageKey = (jobId: string, fileName: string): string => {
-  const safeName = fileName.replace(/[^A-Za-z0-9._-]/g, '_');
+  const safeName = fileName.trim().replace(/[^A-Za-z0-9._-]/g, '_');
   return `extraction-inputs/${jobId}/${safeName}`;
 };
 
-extractionRoutes.post('/jobs', async (c) => {
-  let payload: unknown;
-  try {
-    payload = await c.req.json();
-  } catch {
-    return c.json({ error: { code: 'INVALID_JSON', message: 'Body must be valid JSON.' } }, 400);
+export const getExtractionJob = async (c: Context<{ Bindings: EnvBindings }>): Promise<Response> => {
+  const jobId = c.req.param('jobId');
+  const state = (await readExtractionJob(c.env.CACHE, jobId)) as ExtractionJobState | null;
+
+  if (!state) {
+    return c.json({ error: { code: 'NOT_FOUND', message: `Job ${jobId} was not found.` } }, 404);
   }
 
-  try {
-    const request = parseCreateJobPayload(payload);
-    ensurePayloadSize(request.files);
+  return c.json({ job: state });
+};
 
+extractionRoutes.post('/jobs', async (c) => {
+  try {
+    const request = await parseCreateJobPayload(c);
     const jobId = generateId();
     const queuedAt = nowIso();
-
     const fileRefs: ExtractionQueueMessage['files'] = [];
 
     for (const file of request.files) {
       const key = storageKey(jobId, file.name);
-      const bytes = decodeBase64ToArrayBuffer(file.contentBase64);
-      await c.env.STORAGE.put(key, bytes);
-      fileRefs.push({
-        name: file.name,
-        key
-      });
+      await c.env.STORAGE.put(key, file.bytes);
+      fileRefs.push({ name: file.name, key });
     }
 
     await writeExtractionJob(c.env.CACHE, {
@@ -73,8 +54,12 @@ extractionRoutes.post('/jobs', async (c) => {
       files: fileRefs
     } satisfies ExtractionQueueMessage);
 
-    return c.json({ jobId, status: 'queued', queuedAt }, 202);
+    return c.json({ jobId, materialId: request.materialId, status: 'queued', queuedAt }, 202);
   } catch (error) {
+    if (error instanceof RouteError) {
+      return c.json({ error: { code: error.code, message: error.message } }, error.statusCode);
+    }
+
     if (error instanceof z.ZodError) {
       return c.json(
         {
@@ -93,15 +78,6 @@ extractionRoutes.post('/jobs', async (c) => {
   }
 });
 
-extractionRoutes.get('/jobs/:jobId', async (c) => {
-  const jobId = c.req.param('jobId');
-  const state = (await readExtractionJob(c.env.CACHE, jobId)) as ExtractionJobState | null;
-
-  if (!state) {
-    return c.json({ error: { code: 'NOT_FOUND', message: `Job ${jobId} was not found.` } }, 404);
-  }
-
-  return c.json({ job: state });
-});
+extractionRoutes.get('/jobs/:jobId', getExtractionJob);
 
 export { extractionRoutes };
