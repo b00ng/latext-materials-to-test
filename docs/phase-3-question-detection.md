@@ -52,7 +52,7 @@
 
 - [x] Implement queue-based normalization flow for `pdf`/`docx`/`image` with KV job state.
 - [ ] Replace Python-incompatible regex anchors in detector/parser implementation.
-- [ ] Implement `QuestionDetector` and `MCQFormatter`.
+- [x] Implement `QuestionDetector` and `MCQFormatter`.
 - [ ] Persist extracted questions + `answer_status` into D1.
 - [ ] Implement durable D1-backed job progress/status writes.
 
@@ -879,8 +879,8 @@ Current implementation (2026-02-24):
 - [x] KV-backed extraction job status endpoint under `/api/extraction/jobs/:jobId`
 
 Remaining target deliverables:
-- [ ] `QuestionDetector` — 4 detection strategies (Vietnamese, English, enumerate, heuristic)
-- [ ] `MCQFormatter` — structures blocks into `MCQQuestion` entities with `answerStatus`
+- [x] `QuestionDetector` — 4 detection strategies (Vietnamese, English, enumerate, heuristic)
+- [x] `MCQFormatter` — structures blocks into `MCQQuestion` entities with `answerStatus`
 - [ ] `ExtractQuestionsUseCase` — orchestrates parse → detect → format → store
 - [ ] `D1MaterialRepository` — CRUD operations for materials table
 - [ ] `D1QuestionRepository` — CRUD operations with batch insert for questions

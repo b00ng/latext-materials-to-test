@@ -46,8 +46,8 @@
 
 ## Todo List
 
-- [ ] Cycle-safe include resolution.
-- [ ] Correct article/docclass splitting.
+- [x] Cycle-safe include resolution.
+- [x] Correct article/docclass splitting.
 - [ ] Full fixture parity for `resolve` + `tex2html` behavior.
 
 ## Success Criteria
@@ -946,13 +946,13 @@ npx vitest run tests/domain/
 ## Deliverables (Target)
 
 After Phase 2 completion:
-- [ ] `stripComments()` — ported and tested
-- [ ] `resolveIncludes()` — adapted for R2 file map (no filesystem)
-- [ ] `parsePreamble()` — extracts metadata, macros, custom environments
-- [ ] `detectStructure()` — finds parts/chapters/sections
-- [ ] `splitIntoSections()` — splits chapters into section pairs
-- [ ] `protectMath()` / `restoreMath()` — math placeholder system
-- [ ] `parseLists()` — extracts structured list data (critical for MCQ choices)
-- [ ] `parseEnvironments()` — extracts theorem/example/exercise blocks
-- [ ] `LaTeXParser` facade class — orchestrates full pipeline
-- [ ] 8+ test files covering all ported functions
+- [x] `stripComments()` — ported and tested
+- [x] `resolveIncludes()` — adapted for R2 file map (no filesystem)
+- [x] `parsePreamble()` — extracts metadata, macros, custom environments
+- [x] `detectStructure()` — finds parts/chapters/sections
+- [x] `splitIntoSections()` — splits chapters into section pairs
+- [x] `protectMath()` / `restoreMath()` — math placeholder system
+- [x] `parseLists()` — extracts structured list data (critical for MCQ choices)
+- [x] `parseEnvironments()` — extracts theorem/example/exercise blocks
+- [x] `LaTeXParser` facade class — orchestrates full pipeline
+- [x] 8+ test files covering all ported functions
