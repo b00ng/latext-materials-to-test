@@ -7,7 +7,8 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
-    "test": "node node_modules/vitest/vitest.mjs run"
+    "test": "node node_modules/vitest/vitest.mjs run",
+    "smoke:api": "node scripts/smoke-api-checklist.mjs"
   },
   "dependencies": {
     "hono": "^4.12.2",

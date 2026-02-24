@@ -627,47 +627,78 @@ export default {
 
 ## 4.5 Deployment
 
-### Deploy to Cloudflare
+### 4.5.1 Pre-deploy checklist
+
+- [ ] `npm run typecheck`
+- [ ] `npm test`
+- [ ] Confirm API key exists in KV (`api-key:<key>`)
+- [ ] Confirm `NORMALIZER_URL` points to deployed normalizer
+- [ ] Confirm `NORMALIZER_TOKEN` exists and matches normalizer service
+
+### 4.5.2 Deploy to Cloudflare
 
 ```bash
-# 1. Apply D1 migrations to production
+# 1) Apply D1 migrations
 npx wrangler d1 migrations apply mcq-generator-db --remote
 
-# 2. Configure normalization secret
+# 2) Ensure required secret exists
 npx wrangler secret put NORMALIZER_TOKEN
 
-# 3. Deploy Worker
+# 3) Deploy worker
 npx wrangler deploy
-
-# 4. Verify deployment
-curl https://mcq-generator.<your-subdomain>.workers.dev/health
 ```
 
-### Test end-to-end
+### 4.5.3 Post-deploy smoke checklist (E4)
+
+#### Option A: scripted smoke validation (recommended)
 
 ```bash
-# 1. Upload one or more source files
+npm run smoke:api -- \
+  --base-url https://mcq-generator.<subdomain>.workers.dev \
+  --api-key <api-key>
+```
+
+Script location:
+- `scripts/smoke-api-checklist.mjs`
+
+Script verifies:
+- `GET /health` -> `200`
+- `POST /api/materials/upload` -> `202`
+- `GET /api/jobs/:id` reaches `completed`
+- `GET /api/materials/:id/questions` returns non-empty list
+- `POST /api/tests/generate` -> `201`
+- `GET /api/tests/:id` -> `200`
+- legacy `GET /api/extraction/jobs/:id` -> `404`
+
+#### Option B: manual smoke validation
+
+```bash
+# 1) Health
+curl https://mcq-generator.<subdomain>.workers.dev/health
+
+# 2) Upload one source file (capture materialId + jobId)
 curl -X POST https://mcq-generator.<subdomain>.workers.dev/api/materials/upload \
   -H "x-api-key: <api-key>" \
-  -F "files=@sample-math-test.pdf" \
-  -F "sourceType=pdf" \
-  -F "title=Math Test 2024"
+  -F "files[]=@sample.tex" \
+  -F "sourceType=latex" \
+  -F "mainFile=sample.tex" \
+  -F "title=Smoke Run"
 
-# 2. Check job status (use jobId from response)
+# 3) Canonical job status
 curl -H "x-api-key: <api-key>" \
   https://mcq-generator.<subdomain>.workers.dev/api/jobs/<jobId>
 
-# 3. Get extracted questions (use materialId from response)
+# 4) Extracted questions
 curl -H "x-api-key: <api-key>" \
   https://mcq-generator.<subdomain>.workers.dev/api/materials/<materialId>/questions
 
-# 4. Generate a test
+# 5) Generate test
 curl -X POST https://mcq-generator.<subdomain>.workers.dev/api/tests/generate \
   -H "x-api-key: <api-key>" \
   -H "Content-Type: application/json" \
-  -d '{"title":"Final Exam","questionCount":20,"difficulty":{"min":3,"max":7}}'
+  -d '{"title":"Smoke Test","questionCount":1,"materialIds":["<materialId>"]}'
 
-# 5. Get test with questions
+# 6) Validate test retrieval
 curl -H "x-api-key: <api-key>" \
   https://mcq-generator.<subdomain>.workers.dev/api/tests/<testId>
 ```
@@ -696,6 +727,9 @@ Current implementation (2026-02-24):
 - [x] Extraction create/status endpoints under `/api/extraction/jobs*`
 - [x] Request validation for extraction create payload (`zod`)
 - [x] Queue consumer integration for async normalization
+- [x] Integration tests for materials/questions/tests/jobs route groups
+- [x] End-to-end flow test (`upload -> job status -> extracted questions -> test generation`)
+- [x] Deployment/smoke checklist (manual + scripted)
 
 Remaining target deliverables:
 - [ ] 14 REST API endpoints fully implemented with Hono
@@ -705,5 +739,4 @@ Remaining target deliverables:
 - [ ] Query and body validation middleware across route groups
 - [ ] Canonical jobs route (`/api/jobs/:id`)
 - [ ] Cron handler for cleanup of stale failed materials
-- [ ] End-to-end test suite
 - [ ] Complete MCQ generation pipeline: **multi-source upload (`latex/pdf/docx/image`) → normalize/parse → detect → format → JSON API**
