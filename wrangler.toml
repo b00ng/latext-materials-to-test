@@ -1,0 +1,33 @@
+name = "mcq-generator"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+[vars]
+ENVIRONMENT = "development"
+NORMALIZER_URL = "http://localhost:8080"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "mcq-generator-db"
+database_id = "replace-with-your-d1-database-id"
+
+[[r2_buckets]]
+binding = "STORAGE"
+bucket_name = "mcq-materials"
+
+[[queues.producers]]
+binding = "EXTRACTION_QUEUE"
+queue = "extraction-jobs"
+
+[[queues.consumers]]
+queue = "extraction-jobs"
+max_batch_size = 1
+max_retries = 3
+dead_letter_queue = "extraction-dlq"
+
+[[kv_namespaces]]
+binding = "CACHE"
+id = "replace-with-your-kv-namespace-id"
+
+[[triggers.crons]]
+cron = "0 */6 * * *"
