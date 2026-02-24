@@ -49,6 +49,20 @@ Authenticated `POST /normalize` checks were run against production for:
 - `sourceType=docx` -> `200`, non-empty `fileMap.main.tex`
 - `sourceType=image` -> `200`, non-empty `fileMap.main.tex`
 
+## Extraction Integration (2026-02-24)
+
+`mcq-generator` now exposes queue-backed extraction endpoints:
+
+- `POST /api/extraction/jobs`
+- `GET /api/extraction/jobs/:jobId`
+
+Flow:
+
+1. API request stores uploaded base64 files into R2 (`extraction-inputs/{jobId}/*`).
+2. Queue job is enqueued with R2 references (not raw file payload).
+3. Queue consumer loads file bytes from R2, calls normalizer with bearer token auth.
+4. Job status/result summary is persisted in KV (`CACHE`) and queryable via job endpoint.
+
 ## Rotation Procedure
 
 1. Generate one token.
